@@ -17,6 +17,21 @@ from sklearn.metrics.pairwise import cosine_similarity
 # ── PAGE CONFIG ────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Fragrance Recommender")
 
+# ── PASSWORD GATE ──────────────────────────────────────────────────────────────
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    st.title("Fragrance Recommender")
+    pwd = st.text_input("Password", type="password")
+    if st.button("Enter"):
+        if pwd == st.secrets.get("app_password", ""):
+            st.session_state.authenticated = True
+            st.rerun()
+        else:
+            st.error("Incorrect password.")
+    st.stop()
+
 password = st.sidebar.text_input("Password", type="password")
 if password != st.secrets.get("app_password", ""):
     st.warning("Enter the password to access the app.")
