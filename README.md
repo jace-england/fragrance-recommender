@@ -1,10 +1,10 @@
 # Fragrance Collection and Recommendation Tool
 
-I'm really into niche fragrances, and I use Parfumo to log and review my collection. I've been using my Notes app to keep track of which fragrances are on my wishlist, which ones I have samples for, and which ones I still need to write Parfumo reviews for. But the page is getting really long and it's a pain to scroll through everything... the Parfumo website also doesn't have every fragrance I own in their database, so I wanted to create an app that collects everything into one place.
+I'm really into niche fragrances, and I use Parfumo to log and review my collection. I've been using my Notes app to keep track of which fragrances are on my wishlist, which ones I have samples for, and which ones I still need to write Parfumo reviews for. But the page is getting really long and it's a pain to scroll through everything... the Parfumo website also doesn't have every fragrance I own in their database, so I wanted to create an app that collects everything into one place and is suitable for use on mobile.
 
 I created a personal fragrance collection and recommendation tool built with Streamlit, designed to help manage a perfume collection, discover new fragrances, create a wishlist and get daily wear recommendations based on mood, season, and taste profile.
 
-It combines rule-based scoring, TF-IDF weighted matching, and semantic search (Sentence Transformers) to surface personalised recommendations from both a personal collection and the Parfumo fragrance database. It also has the option to add wishlist entries manually, through the Parfumo dataset or via Parfumo URL (with scraper that handles pyramid and single-section note formats, filters usernames and junk).
+It combines rule-based scoring, TF-IDF weighted matching, and semantic search (Sentence Transformers) to surface personalised recommendations from both a personal collection and the Parfumo fragrance database. It also has the option to add wishlist entries manually, through the Parfumo dataset or via Parfumo URL (with scraper that handles pyramid and single-section note formats, filters usernames and junk). I can access the app through my phone browser and save it to my home screen to access as and when I need it.
 
 ## Goals
 
@@ -15,22 +15,6 @@ It combines rule-based scoring, TF-IDF weighted matching, and semantic search (S
 
 ## Key Features
 
-### Wear Today
-- Semantic search — describe a mood or vibe in plain language
-- Keyword matching on specific notes and themes
-- Season, strength, and masculine/feminine/unisex filters
-- Blended scoring combining semantic similarity and keyword relevance
-- **Surprise Me** — random pick from your top-rated wearable fragrances
-- Explainable recommendations with "Why it matched" summaries
-
-### Discover New Fragrances
-- Taste profile learned from your collection using IDF-weighted note scoring
-- Brand affinity boosting for fragrance houses you already love
-- Keyword and semantic refine search
-- **Similar to This** — find Parfumo fragrances semantically similar to ones you already own
-- Filters out fragrances you own or already have on your wishlist
-- Minimum community rating threshold to remove obscure results
-
 ### My Collection
 - Browse, search, edit, and delete entries
     - Add manually, from wishlist, or via Parfumo URL with automatic note/theme/accent population via scraping
@@ -39,6 +23,8 @@ It combines rule-based scoring, TF-IDF weighted matching, and semantic search (S
 - Data validation on save (duplicate detection, required field checks)
 - Auto-backup to `PerfumeCollection_backup.csv` before every write
 - CSV export and import
+![My Collection](screenshots/my-collection.png)
+
 
 ### Wishlist
 - Add from:
@@ -48,6 +34,38 @@ It combines rule-based scoring, TF-IDF weighted matching, and semantic search (S
 - "I got it!" flow to move a wishlist item into your collection through automatic population in the Add Fragrance tab
 - Wishlist table is stored separately in `Wishlist.csv`
 - CSV export and import
+![Wishlist](screenshots/wishlist.png)
+
+### Wear Today
+- Semantic search — describe a mood or vibe in plain language
+- Keyword matching on specific notes and themes
+- Season, strength, and masculine/feminine/unisex filters
+- Blended scoring combining semantic similarity and keyword relevance
+- **Surprise Me** — random pick from your top-rated wearable fragrances
+- Explainable recommendations with "Why it matched" summaries
+<div class="grid" markdown>
+
+![Wear Today Semantic](screenshots/wear-today-semantic.png)
+
+![Wear Today Surprise Me](screenshots/wear-today-surprise-me.png)
+
+
+</div>
+
+### Discover New Fragrances
+- Taste profile learned from your collection using IDF-weighted note scoring
+- Brand affinity boosting for fragrance houses you already love
+- Keyword and semantic refine search
+- **Similar to This** — find Parfumo fragrances semantically similar to ones you already own
+- Filters out fragrances you own or already have on your wishlist
+- Minimum community rating threshold to remove obscure results
+<div class="grid" markdown>
+
+![Discover Similar to Collection](screenshots/discover-similar-to-collection.png)
+
+![Discover Semantic](screenshots/discover-semantic-search.png)
+
+</div>
 
 ### Analytics
 - Collection metrics: total, would wear vs. not, average rating, 5-star count, review progress
@@ -56,6 +74,13 @@ It combines rule-based scoring, TF-IDF weighted matching, and semantic search (S
 - Note co-occurrence heatmap
 - Review progress tracker with expandable list of unreviewed fragrances
 - Wishlist analytics: note/theme comparison vs collection, compatibility ranking, similarity to owned fragrances
+<div class="grid" markdown>
+
+![Analytics Collection](screenshots/analytics-collection.png)
+
+![Analytics Wishlist](screenshots/analytics-collection.png)
+
+</div>
 
 ## Recommendation Engine
 
