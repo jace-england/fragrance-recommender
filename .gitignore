@@ -24,3 +24,6 @@ Wishlist_export.csv
 
 # Environment
 .env
+
+# Streamlit
+.streamlit/secrets.toml

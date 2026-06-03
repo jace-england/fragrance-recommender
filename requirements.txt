@@ -7,3 +7,4 @@ sentence-transformers
 torch
 requests
 beautifulsoup4
+gspread
