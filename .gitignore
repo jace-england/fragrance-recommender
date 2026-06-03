@@ -5,6 +5,7 @@ __pycache__/
 .venv/
 .venv 2/
 *.egg-info/
+old code/
 
 # Data files — keep CSVs but ignore large embedding caches
 parfumo_embeddings.npy
