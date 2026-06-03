@@ -8,6 +8,8 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
+import gspread
+from google.oauth2.service_account import Credentials
 from collections import Counter
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -124,17 +126,57 @@ COLLECTION_CACHE_PATH = "collection_embeddings.npy"
 REFINE_BOOST          = 20
 SEMANTIC_WEIGHT       = 0.6   # blend ratio for Wear Today (semantic vs keyword)
 
-WISHLIST_PATH = "Wishlist.csv"
+WISHLIST_PATH = "Wishlist.csv"  # kept for local fallback only
+
+# ── GOOGLE SHEETS CLIENT ───────────────────────────────────────────────────────
+@st.cache_resource
+def get_gsheet_client():
+    """Authorise and return a gspread client using Streamlit secrets."""
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+    ]
+    creds = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=scopes
+    )
+    return gspread.authorize(creds)
+
+def get_worksheet(sheet_name):
+    """Return a gspread worksheet by tab name."""
+    client = get_gsheet_client()
+    spreadsheet_id = st.secrets["sheets"]["spreadsheet_id"]
+    sh = client.open_by_key(spreadsheet_id)
+    return sh.worksheet(sheet_name)
+
+def read_sheet(sheet_name):
+    """Read a Google Sheet tab and return a pandas DataFrame."""
+    ws = get_worksheet(sheet_name)
+    data = ws.get_all_records()
+    return pd.DataFrame(data)
+
+def write_sheet(sheet_name, df):
+    """Overwrite a Google Sheet tab with a pandas DataFrame."""
+    ws = get_worksheet(sheet_name)
+    ws.clear()
+    ws.update([df.columns.tolist()] + df.fillna("").astype(str).values.tolist())
+
+def invalidate_data_cache():
+    """Clear Streamlit's data cache so next load reads fresh from Sheets."""
+    st.cache_data.clear()
 
 # ── HELPERS ────────────────────────────────────────────────────────────────────
 def backup_collection():
     """
-    Copy PerfumeCollection.csv to PerfumeCollection_backup.csv before
-    any save operation. shutil.copy2 preserves the file's metadata too.
-    If the file doesn't exist yet (first run) we skip silently.
+    Back up the Collection sheet to a CollectionBackup tab in Google Sheets.
+    Falls back to local file backup if Sheets unavailable.
     """
-    if os.path.exists("PerfumeCollection.csv"):
-        shutil.copy2("PerfumeCollection.csv", "PerfumeCollection_backup.csv")
+    try:
+        df = read_sheet("Collection")
+        write_sheet("CollectionBackup", df)
+    except Exception:
+        if os.path.exists("PerfumeCollection.csv"):
+            shutil.copy2("PerfumeCollection.csv", "PerfumeCollection_backup.csv")
 def tokenize(text):
     return set(re.findall(r"\b\w+\b", str(text).lower()))
 
@@ -372,9 +414,17 @@ def scrape_parfumo_url(url):
         return None, f"Could not parse page: {e}"
 
 # ── DATA LOADING ───────────────────────────────────────────────────────────────
-@st.cache_data
+@st.cache_data(ttl=30)
 def load_collection(version=0):
-    return pd.read_csv("PerfumeCollection.csv")
+    """Load collection from Google Sheets. TTL of 30s so edits propagate quickly."""
+    try:
+        df = read_sheet("Collection")
+        # Ensure Rating is numeric
+        df["Rating"] = pd.to_numeric(df["Rating"], errors="coerce").fillna(0).astype(int)
+        return df
+    except Exception:
+        # Fallback to local CSV if Sheets unavailable (e.g. local dev without secrets)
+        return pd.read_csv("PerfumeCollection.csv")
 
 @st.cache_data
 def load_parfumo():
@@ -423,20 +473,26 @@ def get_parfumo_embeddings(parfumo, _model):
     np.save(PARFUMO_CACHE_PATH, embs)
     return embs
 
-@st.cache_data
+@st.cache_data(ttl=30)
 def load_wishlist(version=0):
-    """
-    Load Wishlist.csv. If the file doesn't exist yet (first run),
-    return an empty dataframe with the correct columns so the rest
-    of the page doesn't crash.
-    """
-    if not os.path.exists(WISHLIST_PATH):
-        return pd.DataFrame(columns=["Name", "Brand", "Notes", "Themes", "URL"])
-    df = pd.read_csv(WISHLIST_PATH)
-    df = df.drop(columns=["Rating_Value"], errors="ignore")
-    if "Main_Accords" in df.columns and "Themes" not in df.columns:
-        df = df.rename(columns={"Main_Accords": "Themes"})
-    return df
+    """Load wishlist from Google Sheets."""
+    try:
+        df = read_sheet("Wishlist")
+        if df.empty:
+            return pd.DataFrame(columns=["Name", "Brand", "Notes", "Themes", "URL"])
+        df = df.drop(columns=["Rating_Value"], errors="ignore")
+        if "Main_Accords" in df.columns and "Themes" not in df.columns:
+            df = df.rename(columns={"Main_Accords": "Themes"})
+        return df
+    except Exception:
+        # Fallback to local CSV
+        if not os.path.exists(WISHLIST_PATH):
+            return pd.DataFrame(columns=["Name", "Brand", "Notes", "Themes", "URL"])
+        df = pd.read_csv(WISHLIST_PATH)
+        df = df.drop(columns=["Rating_Value"], errors="ignore")
+        if "Main_Accords" in df.columns and "Themes" not in df.columns:
+            df = df.rename(columns={"Main_Accords": "Themes"})
+        return df
 
 # ── PROFILE BUILDERS ───────────────────────────────────────────────────────────
 def build_taste_profile(collection, idf):
@@ -542,8 +598,9 @@ def render_match_card(row, match_info, rating_col="Rating",
                 "URL":    row.get("URL", ""),
             }])
             updated_wish = pd.concat([wishlist, new_wish], ignore_index=True)
-            updated_wish.to_csv(WISHLIST_PATH, index=False)
+            write_sheet("Wishlist", updated_wish)
             st.session_state.wishlist_version += 1
+            invalidate_data_cache()
             st.toast(f"'{row[name_col]}' added to your wishlist!")
             st.rerun()
 
@@ -551,6 +608,8 @@ def render_match_card(row, match_info, rating_col="Rating",
 
 
 # ── LOAD EVERYTHING ────────────────────────────────────────────────────────────
+if "last_add_success" not in st.session_state:
+    st.session_state.last_add_success = None
 if "collection_version" not in st.session_state:
     st.session_state.collection_version = 0
 if "add_form_key" not in st.session_state:
@@ -825,8 +884,9 @@ elif page == "Discover New Fragrances":
                         "URL":    row["URL"],
                     }])
                     updated_wish = pd.concat([wishlist, new_wish], ignore_index=True)
-                    updated_wish.to_csv(WISHLIST_PATH, index=False)
+                    write_sheet("Wishlist", updated_wish)
                     st.session_state.wishlist_version += 1
+                    invalidate_data_cache()
                     st.toast(f"'{row['Name']}' added to your wishlist!")
                     st.rerun()
                 st.markdown("---")
@@ -1354,10 +1414,11 @@ elif page == "My Collection":
                         st.dataframe(new_col_df.head(5))
                         if st.button("Replace collection with this file", key="confirm_col_upload"):
                             backup_collection()
-                            new_col_df.to_csv("PerfumeCollection.csv", index=False)
+                            write_sheet("Collection", new_col_df)
                             if os.path.exists(COLLECTION_CACHE_PATH):
                                 os.remove(COLLECTION_CACHE_PATH)
                             st.session_state.collection_version += 1
+                            invalidate_data_cache()
                             st.session_state.collection_upload_key += 1
                             st.success("Collection replaced successfully.")
                             st.rerun()
@@ -1522,8 +1583,9 @@ elif page == "My Collection":
                         collection.loc[idx, "Notes"]               = notes
 
                         backup_collection()
-                        collection.to_csv("PerfumeCollection.csv", index=False)
+                        write_sheet("Collection", collection)
                         st.session_state.collection_version += 1
+                        invalidate_data_cache()
 
                         if os.path.exists(COLLECTION_CACHE_PATH):
                             os.remove(COLLECTION_CACHE_PATH)
@@ -1538,8 +1600,9 @@ elif page == "My Collection":
                 if st.button("Yes, delete"):
                     backup_collection()
                     updated = collection[collection["Name"] != selected]
-                    updated.to_csv("PerfumeCollection.csv", index=False)
+                    write_sheet("Collection", updated)
                     st.session_state.collection_version += 1
+                    invalidate_data_cache()
                     st.session_state.confirm_delete = None
                     if os.path.exists(COLLECTION_CACHE_PATH):
                         os.remove(COLLECTION_CACHE_PATH)
@@ -1560,6 +1623,9 @@ elif page == "My Collection":
     with tab3:
 
         st.subheader("Add Fragrance")
+
+        if st.session_state.get("last_add_success"):
+            st.success(st.session_state.pop("last_add_success"))
 
         if st.session_state.clear_add_form_pending:
             st.session_state.clear_add_form_pending = False
@@ -1696,12 +1762,13 @@ elif page == "My Collection":
 
                     backup_collection()
                     updated = pd.concat([collection, new_row], ignore_index=True)
-                    updated.to_csv("PerfumeCollection.csv", index=False)
+                    write_sheet("Collection", updated)
 
-                    st.session_state.collection_version += 1
-                    for k in ("_add_form_name", "_add_form_brand", "_add_form_notes"):
-                        st.session_state.pop(k, None)
                     st.session_state.add_form_key += 1
+                    st.session_state.collection_version += 1
+                    st.session_state.last_add_success = f"'{name}' added to your collection!"
+
+                    st.session_state.clear_add_form_pending = True
 
                     if os.path.exists(COLLECTION_CACHE_PATH):
                         os.remove(COLLECTION_CACHE_PATH)
@@ -1710,7 +1777,7 @@ elif page == "My Collection":
                     if str(name).strip().lower() in wishlist_names:
                         st.session_state.wishlist_remove_prompt = name.strip()
 
-                    st.success(f"'{name}' added to your collection!")
+                    invalidate_data_cache()
                     st.rerun()
 
         if st.session_state.wishlist_remove_prompt:
@@ -1722,8 +1789,9 @@ elif page == "My Collection":
                     updated_wish = wishlist[
                         wishlist["Name"].str.strip().str.lower() != prompt_name.lower()
                     ]
-                    updated_wish.to_csv(WISHLIST_PATH, index=False)
+                    write_sheet("Wishlist", updated_wish)
                     st.session_state.wishlist_version += 1
+                    invalidate_data_cache()
                     st.session_state.wishlist_remove_prompt = None
                     st.success(f"'{prompt_name}' removed from your wishlist.")
                     st.rerun()
@@ -1781,8 +1849,9 @@ elif page == "My Collection":
                                 "URL":    prow["URL"],
                             }])
                             updated_wish = pd.concat([wishlist, new_wish], ignore_index=True)
-                            updated_wish.to_csv(WISHLIST_PATH, index=False)
+                            write_sheet("Wishlist", updated_wish)
                             st.session_state.wishlist_version += 1
+                            invalidate_data_cache()
                             st.toast(f"'{prow['Name']}' added to your wishlist!")
                             st.rerun()
 
@@ -1840,8 +1909,9 @@ elif page == "My Collection":
                                 "URL":    sc_url.strip(),
                             }])
                             updated_wish = pd.concat([wishlist, new_wish], ignore_index=True)
-                            updated_wish.to_csv(WISHLIST_PATH, index=False)
+                            write_sheet("Wishlist", updated_wish)
                             st.session_state.wishlist_version += 1
+                            invalidate_data_cache()
                             st.session_state.scraped_parfumo = None
                             st.session_state.scraped_parfumo_form_key += 1
                             st.session_state.parfumo_url_key += 1
@@ -1871,8 +1941,9 @@ elif page == "My Collection":
                             "URL":    mw_url.strip(),
                         }])
                         updated_wish = pd.concat([wishlist, new_wish], ignore_index=True)
-                        updated_wish.to_csv(WISHLIST_PATH, index=False)
+                        write_sheet("Wishlist", updated_wish)
                         st.session_state.wishlist_version += 1
+                        invalidate_data_cache()
                         st.session_state.manual_wish_form_key += 1
                         st.toast(f"'{mw_name}' added to your wishlist!")
                         st.rerun()
@@ -1898,8 +1969,9 @@ elif page == "My Collection":
                         st.write(f"**{len(new_wish_df)} fragrances** found. Preview:")
                         st.dataframe(new_wish_df.head(5))
                         if st.button("Replace wishlist with this file", key="confirm_wish_upload"):
-                            new_wish_df.to_csv(WISHLIST_PATH, index=False)
+                            write_sheet("Wishlist", new_wish_df)
                             st.session_state.wishlist_version += 1
+                            invalidate_data_cache()
                             st.session_state.wishlist_upload_key += 1
                             st.success("Wishlist replaced successfully.")
                             st.rerun()
@@ -1962,8 +2034,9 @@ elif page == "My Collection":
 
                         if st.button("Remove", key=f"wish_remove_{wrow['Name']}"):
                             updated_wish = wishlist[wishlist["Name"] != wrow["Name"]]
-                            updated_wish.to_csv(WISHLIST_PATH, index=False)
+                            write_sheet("Wishlist", updated_wish)
                             st.session_state.wishlist_version += 1
+                            invalidate_data_cache()
                             st.rerun()
 
                     st.markdown("---")
