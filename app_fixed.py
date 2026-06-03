@@ -15,7 +15,10 @@ from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
 # ── PAGE CONFIG ────────────────────────────────────────────────────────────────
-st.set_page_config(page_title="Fragrance Recommender", page_icon="✨")
+st.set_page_config(page_title="Fragrance Recommender")
+st.markdown("""
+<link rel="apple-touch-icon" href="https://raw.githubusercontent.com/jace-england/fragrance-recommender/main/icon.png">
+""", unsafe_allow_html=True)
 
 # ── MOBILE-FRIENDLY CSS ────────────────────────────────────────────────────────
 st.markdown("""
