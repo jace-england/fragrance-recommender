@@ -32,11 +32,6 @@ if not st.session_state.authenticated:
             st.error("Incorrect password.")
     st.stop()
 
-password = st.sidebar.text_input("Password", type="password")
-if password != st.secrets.get("app_password", ""):
-    st.warning("Enter the password to access the app.")
-    st.stop()
-
 # ── MOBILE-FRIENDLY CSS ────────────────────────────────────────────────────────
 st.markdown("""
 <style>
