@@ -43,14 +43,7 @@ It combines rule-based scoring, TF-IDF weighted matching, and semantic search (S
 - Blended scoring combining semantic similarity and keyword relevance
 - **Surprise Me** — random pick from your top-rated wearable fragrances
 - Explainable recommendations with "Why it matched" summaries
-<div class="grid" markdown>
-
-![Wear Today Semantic](screenshots/wear-today-semantic.png)
-
-![Wear Today Surprise Me](screenshots/wear-today-surprise-me.png)
-
-
-</div>
+<table><tr><td><img src="screenshots/wear-today-semantic.png"></td><td><img src="screenshots/wear-today-surprise-me.png"></td></tr></table>
 
 ### Discover New Fragrances
 - Taste profile learned from your collection using IDF-weighted note scoring
@@ -59,13 +52,7 @@ It combines rule-based scoring, TF-IDF weighted matching, and semantic search (S
 - **Similar to This** — find Parfumo fragrances semantically similar to ones you already own
 - Filters out fragrances you own or already have on your wishlist
 - Minimum community rating threshold to remove obscure results
-<div class="grid" markdown>
-
-![Discover Similar to Collection](screenshots/discover-similar-to-collection.png)
-
-![Discover Semantic](screenshots/discover-semantic-search.png)
-
-</div>
+<table><tr><td><img src="screenshots/discover-similar-to-collection.png"></td><td><img src="screenshots/discover-semantic-search.png"></td></tr></table>
 
 ### Analytics
 - Collection metrics: total, would wear vs. not, average rating, 5-star count, review progress
@@ -74,13 +61,7 @@ It combines rule-based scoring, TF-IDF weighted matching, and semantic search (S
 - Note co-occurrence heatmap
 - Review progress tracker with expandable list of unreviewed fragrances
 - Wishlist analytics: note/theme comparison vs collection, compatibility ranking, similarity to owned fragrances
-<div class="grid" markdown>
-
-![Analytics Collection](screenshots/analytics-collection.png)
-
-![Analytics Wishlist](screenshots/analytics-collection.png)
-
-</div>
+<table><tr><td><img src="screenshots/analytics-collection.png"></td><td><img src="screenshots/analytics-wishlist.png"></td></tr></table>
 
 ## Recommendation Engine
 
