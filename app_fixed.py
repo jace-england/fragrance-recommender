@@ -16,9 +16,11 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 # ── PAGE CONFIG ────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Fragrance Recommender")
-st.markdown("""
-<link rel="apple-touch-icon" href="https://raw.githubusercontent.com/jace-england/fragrance-recommender/main/icon.png">
-""", unsafe_allow_html=True)
+
+password = st.sidebar.text_input("Password", type="password")
+if password != st.secrets.get("app_password", ""):
+    st.warning("Enter the password to access the app.")
+    st.stop()
 
 # ── MOBILE-FRIENDLY CSS ────────────────────────────────────────────────────────
 st.markdown("""
@@ -115,7 +117,7 @@ def responsive_columns(n_desktop, gap="small"):
 
 page = st.sidebar.radio(
     "Navigation",
-    ["Wear Today", "Discover New Fragrances", "My Collection", "Analytics"]
+    ["My Collection", "Wear Today", "Discover New Fragrances", "Analytics"]
 )
 
 # ── CONSTANTS ──────────────────────────────────────────────────────────────────
