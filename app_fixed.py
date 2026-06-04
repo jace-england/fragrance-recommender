@@ -250,25 +250,48 @@ def scrape_parfumo_url(url):
                 brand = path_parts[-2].replace("_", " ").replace("-", " ")
 
         # ── Themes / Main Accords ─────────────────────────────────────────────
-        # Strategy 1: look near a "Main Accords" text anchor
         seen, accords_out = set(), []
-        anchor = soup.find(string=lambda s: s and "main accord" in s.lower())
-        if anchor:
-            section = anchor.find_parent()
-            for _ in range(4):  # walk up a few levels to find the container
+
+        # Strategy 1 (primary): target s-circle-container labels inside "Main accords" section
+        accord_anchor = soup.find(string=lambda s: s and "main accord" in s.lower())
+        if accord_anchor:
+            accord_h2 = accord_anchor.find_parent()
+            accord_section = accord_h2.find_parent() if accord_h2 else None
+            if accord_section:
+                for container in accord_section.find_all(
+                    "div", class_=lambda c: c and "s-circle-container" in c
+                ):
+                    label = container.find(
+                        "div", class_=lambda c: c and "text-xs" in c
+                    )
+                    if label:
+                        t = label.get_text(strip=True)
+                        if t and t.lower() not in seen:
+                            seen.add(t.lower())
+                            accords_out.append(t)
+
+        # Strategy 2 (fallback): walk up from "Main accords" anchor collecting small text nodes
+        if not accords_out and accord_anchor:
+            section = accord_anchor.find_parent()
+            for _ in range(4):
                 if section and section.parent:
                     section = section.parent
                     candidates = section.find_all(["span", "a", "div", "li"])
+                    raw = []
                     for el in candidates:
-                        cls = " ".join(el.get("class", []))
                         t = el.get_text(strip=True)
                         if 2 < len(t) < 50 and t.lower() not in seen and "accord" not in t.lower():
                             seen.add(t.lower())
-                            accords_out.append(t)
-                    if accords_out:
+                            raw.append(t)
+                    # Strip concatenated entries (superstrings of shorter entries)
+                    filtered = [a for a in raw if not any(
+                        a != b and b.lower() in a.lower() and len(a) > len(b) for b in raw
+                    )]
+                    if filtered:
+                        accords_out.extend(filtered)
                         break
 
-        # Strategy 2: any element with "accord" in its class
+        # Strategy 3 (fallback): any element with "accord" in its class
         if not accords_out:
             for el in soup.find_all(True):
                 cls = " ".join(el.get("class", []))
@@ -278,7 +301,7 @@ def scrape_parfumo_url(url):
                         seen.add(t.lower())
                         accords_out.append(t)
 
-        # Strategy 3: look for JSON-LD structured data
+        # Strategy 4 (fallback): JSON-LD structured data
         if not accords_out:
             for script in soup.find_all("script", type="application/ld+json"):
                 try:
@@ -292,11 +315,6 @@ def scrape_parfumo_url(url):
                 if accords_out:
                     break
 
-        # Remove entries that are concatenations of other entries (parent container text)
-        accords_out = [a for a in accords_out if not any(
-            a != b and b.lower() in a.lower() and len(a) > len(b)
-            for b in accords_out
-        )]
         themes = ", ".join(accords_out[:12])
 
         # ── Notes ─────────────────────────────────────────────────────────────
@@ -330,28 +348,47 @@ def scrape_parfumo_url(url):
                 return False
             return True
 
-        # Strategy 1a: look near pyramid labels (Top / Heart / Middle / Base)
-        for label in ["top notes", "heart notes", "middle notes", "base notes"]:
-            anchor = soup.find(string=lambda s: s and label in s.lower())
-            if anchor:
-                section = anchor.find_parent()
-                for _ in range(3):
-                    if section and section.parent:
-                        section = section.parent
-                        candidates = section.find_all(["span", "a", "li"])
-                        batch = []
-                        for el in candidates:
-                            if el.name == "a" and "/Users/" in (el.get("href") or ""):
-                                continue
-                            t = el.get_text(strip=True)
-                            if is_valid_note(t) and t.lower() not in seen:
-                                seen.add(t.lower())
-                                batch.append(t)
-                        if batch:
-                            notes_out.extend(batch)
-                            break
+        # Strategy 1 (primary): notes_list div with clickable_note_img spans
+        notes_div = soup.find("div", class_=lambda c: c and "notes_list" in c)
+        if notes_div:
+            for img in notes_div.find_all("img", alt=True):
+                alt = img.get("alt", "").strip()
+                if alt and is_valid_note(alt) and alt.lower() not in seen:
+                    seen.add(alt.lower())
+                    notes_out.append(alt)
+            # If no img found (e.g. lazy-load), fall back to text of clickable_note_img spans
+            if not notes_out:
+                for span in notes_div.find_all(
+                    "span", class_=lambda c: c and "clickable_note_img" in c
+                ):
+                    t = span.get_text(strip=True)
+                    if is_valid_note(t) and t.lower() not in seen:
+                        seen.add(t.lower())
+                        notes_out.append(t)
 
-        # Strategy 1b: "Fragrance Notes" single-section format (e.g. LV Imagination)
+        # Strategy 2 (fallback): look near pyramid labels (Top / Heart / Middle / Base)
+        if not notes_out:
+            for label in ["top notes", "heart notes", "middle notes", "base notes"]:
+                anchor = soup.find(string=lambda s: s and label in s.lower())
+                if anchor:
+                    section = anchor.find_parent()
+                    for _ in range(3):
+                        if section and section.parent:
+                            section = section.parent
+                            candidates = section.find_all(["span", "a", "li"])
+                            batch = []
+                            for el in candidates:
+                                if el.name == "a" and "/Users/" in (el.get("href") or ""):
+                                    continue
+                                t = el.get_text(strip=True)
+                                if is_valid_note(t) and t.lower() not in seen:
+                                    seen.add(t.lower())
+                                    batch.append(t)
+                            if batch:
+                                notes_out.extend(batch)
+                                break
+
+        # Strategy 3 (fallback): "Fragrance Notes" heading section
         if not notes_out:
             for label in ["fragrance notes", "notes"]:
                 anchor = soup.find(string=lambda s: s and s.strip().lower() == label)
@@ -375,7 +412,7 @@ def scrape_parfumo_url(url):
                     if notes_out:
                         break
 
-        # Strategy 2: elements with "note" in their CSS class (fallback)
+        # Strategy 4 (fallback): any element with "note" in its CSS class
         if not notes_out:
             for el in soup.find_all(True):
                 cls = " ".join(el.get("class", []))
@@ -1887,6 +1924,7 @@ elif page == "My Collection":
                         data, err = scrape_parfumo_url(parfumo_url.strip())
                     if err:
                         st.error(f"Could not scrape page: {err}")
+                        st.session_state.scraped_parfumo = None
                     else:
                         st.session_state.scraped_parfumo = data
                         st.session_state.scraped_parfumo_form_key += 1
