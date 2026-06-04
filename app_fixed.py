@@ -25,7 +25,7 @@ if not st.session_state.authenticated:
     st.title("Fragrance Recommender")
     pwd = st.text_input("Password", type="password")
     if st.button("Enter"):
-        if pwd == st.secrets.get("app_password", ""):
+        if pwd and pwd == st.secrets.get("app_password", None):
             st.session_state.authenticated = True
             st.rerun()
         else:
