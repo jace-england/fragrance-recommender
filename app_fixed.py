@@ -1104,10 +1104,11 @@ elif page == "Analytics":
 
         # ── Row 1: Core metrics ───────────────────────────────────────────────────
         m1, m2, m3, m4 = st.columns(4)
+        avg_rating = reviewed["Rating"].mean() if len(reviewed) > 0 else 0
         m1.metric("Total Fragrances",  len(collection))
         m2.metric("Would Wear",        f"{len(liked)} / {len(collection)}")
-        m3.metric("Average Rating",    f"{collection['Rating'].mean():.2f}")
-        m4.metric("5-Star Fragrances", int((collection["Rating"] == 5).sum()))
+        m3.metric("Average Rating",    f"{avg_rating:.2f}")
+        m4.metric("5-Star Fragrances", int((reviewed["Rating"] == 5).sum()))
 
         # ── Row 2: Review + bottle tracking ──────────────────────────────────────
         r1, r2, r3, r4 = st.columns(4)
@@ -1122,7 +1123,11 @@ elif page == "Analytics":
         left, right = st.columns(2)
         with left:
             st.subheader("Rating Distribution")
-            st.bar_chart(collection["Rating"].value_counts().sort_index())
+            st.caption("Based on reviewed fragrances only.")
+            if len(reviewed) > 0:
+                st.bar_chart(reviewed["Rating"].value_counts().sort_index())
+            else:
+                st.info("No reviewed fragrances yet.")
         with right:
             st.subheader("Season Breakdown")
             st.bar_chart(collection["Season"].value_counts())
