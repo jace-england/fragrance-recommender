@@ -1625,7 +1625,7 @@ elif page == "My Collection":
                         collection.loc[idx, "Name"]                = name
                         collection.loc[idx, "Brand"]               = brand
                         collection.loc[idx, "Rating"]              = rating
-                        collection.loc[idx, "Review on Parfumo?"]  = reviewed
+                        collection.loc[idx, "Review on Parfumo?"]  = str(reviewed)
                         collection.loc[idx, "Would I Wear?"]       = would_wear
                         collection.loc[idx, "Sample/Full Bottle?"] = bottle
                         collection.loc[idx, "Themes"]              = themes
@@ -1802,7 +1802,7 @@ elif page == "My Collection":
                         "Name":                name,
                         "Brand":               brand,
                         "Rating":              rating,
-                        "Review on Parfumo?":  reviewed,
+                        "Review on Parfumo?":  str(reviewed),
                         "Would I Wear?":       would_wear,
                         "Sample/Full Bottle?": bottle,
                         "Themes":              themes,
