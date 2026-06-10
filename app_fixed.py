@@ -703,7 +703,7 @@ col_embs   = get_collection_embeddings(collection, model)
 
 
 # ── Analytics drill-down helpers ─────────────────────────────────────────────
-def drilldown_bar_chart(series, source_df, filter_col, chart_key, display_cols=None, label="Category"):
+def drilldown_bar_chart(series, source_df, filter_col, chart_key, display_cols=None, label="Category", sort="-y"):
     chart_df = pd.DataFrame({label: series.index, "Count": series.values})
     sel_name = f"click_{chart_key}"
     sel = alt.selection_point(name=sel_name, fields=[label])
@@ -711,7 +711,7 @@ def drilldown_bar_chart(series, source_df, filter_col, chart_key, display_cols=N
         alt.Chart(chart_df)
         .mark_bar()
         .encode(
-            x=alt.X(f"{label}:N", sort="-y", axis=alt.Axis(labelAngle=-65, labelOverlap=False, title="")),
+            x=alt.X(f"{label}:N", sort=sort, axis=alt.Axis(labelAngle=-65, labelOverlap=False, title="")),
             y=alt.Y("Count:Q"),
             opacity=alt.condition(sel, alt.value(1.0), alt.value(0.4)),
             color=alt.value("#4f8bf9"),
@@ -1181,11 +1181,13 @@ elif page == "Analytics":
             st.subheader("Rating Distribution")
             st.caption("Based on reviewed fragrances only. Click a bar to drill down.")
             if len(reviewed) > 0:
+                rating_counts = reviewed["Rating"].value_counts().sort_index()
                 drilldown_bar_chart(
-                    reviewed["Rating"].value_counts().sort_index(),
+                    rating_counts,
                     reviewed, "Rating", "an_rating",
                     display_cols=["Name", "Brand", "Rating"],
                     label="Rating",
+                    sort=list(rating_counts.index.astype(str)),
                 )
             else:
                 st.info("No reviewed fragrances yet.")
