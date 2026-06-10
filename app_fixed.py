@@ -711,7 +711,7 @@ def drilldown_bar_chart(series, source_df, filter_col, chart_key, display_cols=N
         alt.Chart(chart_df)
         .mark_bar()
         .encode(
-            x=alt.X(f"{label}:N", sort="-y", axis=alt.Axis(labelAngle=-30, title="")),
+            x=alt.X(f"{label}:N", sort="-y", axis=alt.Axis(labelAngle=-65, labelOverlap=False, title="")),
             y=alt.Y("Count:Q"),
             opacity=alt.condition(sel, alt.value(1.0), alt.value(0.4)),
             color=alt.value("#4f8bf9"),
@@ -738,7 +738,7 @@ def drilldown_token_chart(counter, source_df, text_col, n, chart_key, label):
         alt.Chart(chart_df)
         .mark_bar()
         .encode(
-            x=alt.X(f"{label}:N", sort="-y", axis=alt.Axis(labelAngle=-30, title="")),
+            x=alt.X(f"{label}:N", sort="-y", axis=alt.Axis(labelAngle=-65, labelOverlap=False, title="")),
             y=alt.Y("Count:Q"),
             opacity=alt.condition(sel, alt.value(1.0), alt.value(0.4)),
             color=alt.value("#4f8bf9"),
