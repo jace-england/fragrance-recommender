@@ -1179,7 +1179,7 @@ elif page == "Analytics":
         left, right = st.columns(2)
         with left:
             st.subheader("Rating Distribution")
-            st.caption("Based on reviewed fragrances only. Click a bar to see those fragrances.")
+            st.caption("Based on reviewed fragrances only. Click a bar to drill down.")
             if len(reviewed) > 0:
                 drilldown_bar_chart(
                     reviewed["Rating"].value_counts().sort_index(),
@@ -1191,7 +1191,7 @@ elif page == "Analytics":
                 st.info("No reviewed fragrances yet.")
         with right:
             st.subheader("Season Breakdown")
-            st.caption("Click a bar to see those fragrances.")
+            st.caption("Click a bar to drill down.")
             drilldown_bar_chart(
                 collection["Season"].value_counts(),
                 collection, "Season", "an_season", label="Season",
@@ -1201,14 +1201,14 @@ elif page == "Analytics":
         left2, right2 = st.columns(2)
         with left2:
             st.subheader("Strength Breakdown")
-            st.caption("Click a bar to see those fragrances.")
+            st.caption("Click a bar to drill down.")
             drilldown_bar_chart(
                 collection["Strength"].value_counts(),
                 collection, "Strength", "an_strength", label="Strength",
             )
         with right2:
             st.subheader("Gender Breakdown")
-            st.caption("Click a bar to see those fragrances.")
+            st.caption("Click a bar to drill down.")
             drilldown_bar_chart(
                 collection["Gender"].value_counts(),
                 collection, "Gender", "an_gender", label="Gender",
@@ -1218,14 +1218,14 @@ elif page == "Analytics":
         left3, right3 = st.columns(2)
         with left3:
             st.subheader("Bottle Type Breakdown")
-            st.caption("Click a bar to see those fragrances.")
+            st.caption("Click a bar to drill down.")
             drilldown_bar_chart(
                 collection["Sample/Full Bottle?"].value_counts(),
                 collection, "Sample/Full Bottle?", "an_bottle", label="Type",
             )
         with right3:
             st.subheader("Would Wear Breakdown")
-            st.caption("Click a bar to see those fragrances.")
+            st.caption("Click a bar to drill down.")
             drilldown_bar_chart(
                 collection["Would I Wear?"].value_counts(),
                 collection, "Would I Wear?", "an_wouldwear", label="Would Wear",
