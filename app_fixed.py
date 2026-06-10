@@ -7,6 +7,7 @@ import base64
 import numpy as np
 import pandas as pd
 import streamlit as st
+import altair as alt
 import matplotlib.pyplot as plt
 import gspread
 from google.oauth2.service_account import Credentials
@@ -701,6 +702,61 @@ model      = load_model()
 col_embs   = get_collection_embeddings(collection, model)
 
 
+# ── Analytics drill-down helpers ─────────────────────────────────────────────
+def drilldown_bar_chart(series, source_df, filter_col, chart_key, display_cols=None, label="Category"):
+    chart_df = pd.DataFrame({label: series.index, "Count": series.values})
+    sel_name = f"click_{chart_key}"
+    sel = alt.selection_point(name=sel_name, fields=[label])
+    chart = (
+        alt.Chart(chart_df)
+        .mark_bar()
+        .encode(
+            x=alt.X(f"{label}:N", sort="-y", axis=alt.Axis(labelAngle=-30, title="")),
+            y=alt.Y("Count:Q"),
+            opacity=alt.condition(sel, alt.value(1.0), alt.value(0.4)),
+            color=alt.value("#4f8bf9"),
+            tooltip=[alt.Tooltip(f"{label}:N"), alt.Tooltip("Count:Q")],
+        )
+        .add_params(sel)
+    )
+    event = st.altair_chart(chart, use_container_width=True, on_select="rerun", key=chart_key)
+    clicked = (event.selection or {}).get(sel_name, [])
+    if clicked:
+        cat = clicked[0].get(label)
+        if cat is not None:
+            filtered = source_df[source_df[filter_col].astype(str).str.strip() == str(cat).strip()]
+            cols = [c for c in (display_cols or ["Name", "Brand"]) if c in filtered.columns]
+            st.caption(f"**{cat}** — {len(filtered)} fragrances")
+            st.dataframe(filtered[cols].reset_index(drop=True), use_container_width=True, hide_index=True)
+
+
+def drilldown_token_chart(counter, source_df, text_col, n, chart_key, label):
+    chart_df = pd.DataFrame(counter.most_common(n), columns=[label, "Count"])
+    sel_name = f"click_{chart_key}"
+    sel = alt.selection_point(name=sel_name, fields=[label])
+    chart = (
+        alt.Chart(chart_df)
+        .mark_bar()
+        .encode(
+            x=alt.X(f"{label}:N", sort="-y", axis=alt.Axis(labelAngle=-30, title="")),
+            y=alt.Y("Count:Q"),
+            opacity=alt.condition(sel, alt.value(1.0), alt.value(0.4)),
+            color=alt.value("#4f8bf9"),
+            tooltip=[alt.Tooltip(f"{label}:N"), alt.Tooltip("Count:Q")],
+        )
+        .add_params(sel)
+    )
+    event = st.altair_chart(chart, use_container_width=True, on_select="rerun", key=chart_key)
+    clicked = (event.selection or {}).get(sel_name, [])
+    if clicked:
+        token = str(clicked[0].get(label, "")).lower()
+        if token:
+            mask = source_df[text_col].apply(lambda v: token in [w.lower() for w in tokenize(str(v))])
+            filtered = source_df[mask]
+            st.caption(f"**{token}** — {len(filtered)} fragrances")
+            st.dataframe(filtered[["Name", "Brand"]].reset_index(drop=True), use_container_width=True, hide_index=True)
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # WEAR TODAY
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1123,38 +1179,67 @@ elif page == "Analytics":
         left, right = st.columns(2)
         with left:
             st.subheader("Rating Distribution")
-            st.caption("Based on reviewed fragrances only.")
+            st.caption("Based on reviewed fragrances only. Click a bar to see those fragrances.")
             if len(reviewed) > 0:
-                st.bar_chart(reviewed["Rating"].value_counts().sort_index())
+                drilldown_bar_chart(
+                    reviewed["Rating"].value_counts().sort_index(),
+                    reviewed, "Rating", "an_rating",
+                    display_cols=["Name", "Brand", "Rating"],
+                    label="Rating",
+                )
             else:
                 st.info("No reviewed fragrances yet.")
         with right:
             st.subheader("Season Breakdown")
-            st.bar_chart(collection["Season"].value_counts())
+            st.caption("Click a bar to see those fragrances.")
+            drilldown_bar_chart(
+                collection["Season"].value_counts(),
+                collection, "Season", "an_season", label="Season",
+            )
 
         # ── Row 4: Strength + Gender ──────────────────────────────────────────────
         left2, right2 = st.columns(2)
         with left2:
             st.subheader("Strength Breakdown")
-            st.bar_chart(collection["Strength"].value_counts())
+            st.caption("Click a bar to see those fragrances.")
+            drilldown_bar_chart(
+                collection["Strength"].value_counts(),
+                collection, "Strength", "an_strength", label="Strength",
+            )
         with right2:
             st.subheader("Gender Breakdown")
-            st.bar_chart(collection["Gender"].value_counts())
+            st.caption("Click a bar to see those fragrances.")
+            drilldown_bar_chart(
+                collection["Gender"].value_counts(),
+                collection, "Gender", "an_gender", label="Gender",
+            )
 
         # ── Row 5: Bottle type + Would Wear ──────────────────────────────────────
         left3, right3 = st.columns(2)
         with left3:
             st.subheader("Bottle Type Breakdown")
-            st.bar_chart(collection["Sample/Full Bottle?"].value_counts())
+            st.caption("Click a bar to see those fragrances.")
+            drilldown_bar_chart(
+                collection["Sample/Full Bottle?"].value_counts(),
+                collection, "Sample/Full Bottle?", "an_bottle", label="Type",
+            )
         with right3:
             st.subheader("Would Wear Breakdown")
-            st.bar_chart(collection["Would I Wear?"].value_counts())
+            st.caption("Click a bar to see those fragrances.")
+            drilldown_bar_chart(
+                collection["Would I Wear?"].value_counts(),
+                collection, "Would I Wear?", "an_wouldwear", label="Would Wear",
+            )
 
         st.markdown("---")
 
         # ── Brands ────────────────────────────────────────────────────────────────
         st.subheader("Brands in Your Collection")
-        st.bar_chart(collection["Brand"].value_counts().head(20))
+        st.caption("Click a bar to see fragrances from that brand.")
+        drilldown_bar_chart(
+            collection["Brand"].value_counts().head(20),
+            collection, "Brand", "an_brands", label="Brand",
+        )
 
         st.markdown("---")
 
@@ -1162,25 +1247,23 @@ elif page == "Analytics":
         left4, right4 = st.columns(2)
         with left4:
             st.subheader("Top 20 Notes (liked fragrances)")
+            st.caption("Click a bar to see fragrances containing that note.")
             note_counter = Counter()
             for _, row in liked.iterrows():
                 for word in tokenize(row["Notes"]):
                     if len(word) > 2:
                         note_counter[word] += 1
-            st.bar_chart(pd.DataFrame(
-                note_counter.most_common(20), columns=["Note", "Count"]
-            ).set_index("Note"))
+            drilldown_token_chart(note_counter, liked, "Notes", 20, "an_notes", "Note")
 
         with right4:
             st.subheader("Top Themes (liked fragrances)")
+            st.caption("Click a bar to see fragrances with that theme.")
             theme_counter = Counter()
             for _, row in liked.iterrows():
                 for word in tokenize(row["Themes"]):
                     if len(word) > 2:
                         theme_counter[word] += 1
-            st.bar_chart(pd.DataFrame(
-                theme_counter.most_common(20), columns=["Theme", "Count"]
-            ).set_index("Theme"))
+            drilldown_token_chart(theme_counter, liked, "Themes", 20, "an_themes", "Theme")
 
         st.markdown("---")
 

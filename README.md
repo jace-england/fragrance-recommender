@@ -4,7 +4,7 @@ I'm really into niche fragrances, and I use Parfumo to log and review my collect
 
 I created a personal fragrance collection and recommendation tool built with Streamlit, designed to help manage a perfume collection, discover new fragrances, create a wishlist and get daily wear recommendations based on mood, season, and taste profile.
 
-It combines rule-based scoring, TF-IDF weighted matching, and semantic search (Sentence Transformers) to surface personalised recommendations from both a personal collection and the Parfumo fragrance database. It also has the option to add wishlist entries manually, through the Parfumo dataset or via Parfumo URL (with scraper that handles pyramid and single-section note formats, filters usernames and junk). I can access the app through my phone browser and save it to my home screen to access as and when I need it.
+It combines rule-based scoring, TF-IDF weighted matching, and semantic search (Sentence Transformers) to surface personalised recommendations from both a personal collection and the Parfumo fragrance database. It also has the option to add wishlist entries manually, through the Parfumo dataset or via Parfumo URL (with scraper that handles pyramid and single-section note formats, filters usernames and junk). Collection and wishlist data is stored in Google Sheets so edits persist across Streamlit Cloud redeploys. I can access the app through my phone browser and save it to my home screen to access as and when I need it.
 
 ## Goals
 
@@ -21,8 +21,8 @@ It combines rule-based scoring, TF-IDF weighted matching, and semantic search (S
     - URL scraper handles both pyramid (top/heart/base) and single-section note formats
     - Filters usernames and page junk from scraped notes
 - Data validation on save (duplicate detection, required field checks)
-- Auto-backup to `PerfumeCollection_backup.csv` before every write
-- CSV export and import
+- Auto-backup to a Google Sheets backup tab before every write
+- CSV export and import (collection stored in Google Sheets; local CSV used as fallback for offline dev)
 ![My Collection](screenshots/my-collection.png)
 
 
@@ -32,8 +32,7 @@ It combines rule-based scoring, TF-IDF weighted matching, and semantic search (S
     - Inputting a Parfumo URL with automatic note/theme/accent population
     - Manual input form
 - "I got it!" flow to move a wishlist item into your collection through automatic population in the Add Fragrance tab
-- Wishlist table is stored separately in `Wishlist.csv`
-- CSV export and import
+- Wishlist stored in Google Sheets; CSV export and import also available
 ![Wishlist](screenshots/wishlist.png)
 
 ### Wear Today
@@ -56,8 +55,8 @@ It combines rule-based scoring, TF-IDF weighted matching, and semantic search (S
 
 ### Analytics
 - Collection metrics: total, would wear vs. not, average rating, 5-star count, review progress
-- Breakdown charts: rating, season, strength, gender, bottle type
-- Top notes and themes (for liked fragrances only)
+- Interactive breakdown charts: rating, season, strength, gender, bottle type — click any bar to drill down and see which fragrances are in that category
+- Top notes and themes (for liked fragrances only) with the same drill-down behaviour
 - Note co-occurrence heatmap
 - Review progress tracker with expandable list of unreviewed fragrances
 - Wishlist analytics: note/theme comparison vs collection, compatibility ranking, similarity to owned fragrances
@@ -81,18 +80,19 @@ The scoring system combines three signals:
 
 ## Data
 
-- `PerfumeCollection.csv` — personal fragrance collection
+- **Google Sheets** — primary storage for the personal collection and wishlist; keeps data persistent across Streamlit Cloud redeploys. Accessed via a service account key stored in Streamlit secrets.
+- `PerfumeCollection.csv` — local CSV fallback used during offline development
 - `parfumo_data_clean.csv` — scraped Parfumo database (~59,000 fragrances, 1,451 brands, 1709 to 2024) sourced from [here](https://www.kaggle.com/datasets/ibrahimqasimi/parfumo-perfume-database-59k-fragrances)
-- `Wishlist.csv` — generated upon first wishlist entry
 - `parfumo_embeddings.npy` — pre-computed embeddings (generated locally, not committed to repo)
 - `collection_embeddings.npy` — pre-computed collection embeddings (generated locally, not committed to repo)
 
 ## Tools Used
 
-- Python (pandas, numpy, scikit-learn, matplotlib)
+- Python (pandas, numpy, scikit-learn, matplotlib, altair)
 - Streamlit
 - Sentence Transformers (`all-MiniLM-L6-v2`)
 - BeautifulSoup (Parfumo URL scraper)
+- gspread + google-auth (Google Sheets API)
 - Visual Studio Code
 
 ## Project Structure
@@ -101,14 +101,15 @@ The scoring system combines three signals:
 fragrance-recommender/
 
 ├── app_fixed.py              # Main Streamlit application
-├── PerfumeCollection.csv     # Personal fragrance collection
 ├── parfumo_data_clean.csv    # Parfumo scraped database
-├── Wishlist.csv              # Wishlist (auto-generated)
+├── PerfumeCollection.csv     # Local CSV fallback (collection stored in Google Sheets)
 ├── requirements.txt          # Python dependencies
 └── README.md
 ```
 
 ## Setup
+
+The app requires a `.streamlit/secrets.toml` with two keys: `app_password` (password gate) and `gcp_service_account` (Google Sheets service account JSON). Without secrets the app falls back to local CSV files and skips the password check.
 
 ```bash
 # Create virtual environment
@@ -151,8 +152,7 @@ This project demonstrates:
 ## Ways to Improve
 
 - **Wear history tracking** — log which fragrance is worn each day and apply recency weighting so frequently worn fragrances are gently down-scored to encourage rediscovery
-- **Persistent cloud storage** — replace CSV file storage with a lightweight database (e.g. Supabase or Google Sheets API) so collection edits made through the app persist between Streamlit Cloud redeploys
-- **Upgrade to modern Streamlit** — migrate `@st.cache` to `@st.cache_data` / `@st.cache_resource` and adopt `st.data_editor` for inline collection editing
+- **Inline collection editing** — adopt `st.data_editor` for editing collection entries directly in a table rather than through a form
 - **Notes autocomplete** — suggest known note names as the user types when adding a fragrance manually, reducing inconsistent note naming across entries
 - **Fragrance layering suggestions** — identify pairs in the collection that share complementary notes and suggest wearing them together
 - **Cost tracking** — add purchase price and bottle size fields to calculate cost per ml and total collection value
